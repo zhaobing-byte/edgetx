@@ -31,10 +31,9 @@ GPDMA1
 Channel0:  ADC_DMA_STREAM (ADC2)
 Channel1:  INTMODULE_DMA_STREAM (USART10 TX)
 Channel2:  INTMODULE_RX_DMA_STREAM (USART10 RX)
-Channel3:  TELEMETRY_DMA_Stream_TX (UART4 TX)
-Channel4:  FLYSKY_HALL_DMA_Stream_RX (UART7 RX, FLYSKY_GIMBAL) /
-           AUX_SERIAL_DMA_RX_STREAM (UART7 RX, !FLYSKY_GIMBAL) - mutually exclusive
-Channel5:  AUDIO_DMA_Stream (DAC1_CH1)
+Channel3:  TELEMETRY_DMA_Stream_TX (UART7 TX)
+Channel4:  FLYSKY_HALL_DMA_Stream_RX (UART4 RX, FLYSKY_GIMBAL)
+Channel5:  I2S_DMA_Stream (SPI1_TX, I2S1)
 Channel6:
 Channel7:
 
@@ -44,7 +43,7 @@ Channel1:  EXTMODULE_USART_TX_DMA_STREAM (USART1 TX)
 Channel2:  EXTMODULE_USART_RX_DMA_STREAM (USART1 RX)
 Channel3:  LED_STRIP_TIMER_DMA_STREAM (TIM5_UP, RGBLEDS)
 
-LCD: OLED on SPI1 via stm32_spi driver (no DMA at runtime); the LCD_DMA defines
+LCD: OLED on SPI2 via stm32_spi driver (no DMA at runtime); the LCD_DMA defines
 are legacy F4-style names kept only for the non-OLED LCD_W!=128 code path.
 
 TIM1:	EXTMODULE_TIMER
@@ -68,16 +67,16 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define TELEMETRY_EXTI_PRIO             0 // required for soft serial
 
 // Keys
-#define KEYS_GPIO_REG_PAGEDN          GPIOB
-#define KEYS_GPIO_PIN_PAGEDN          LL_GPIO_PIN_8  // PB.08
+#define KEYS_GPIO_REG_PAGEDN          GPIOE
+#define KEYS_GPIO_PIN_PAGEDN          LL_GPIO_PIN_7  // PE.07
 #define KEYS_GPIO_REG_PAGEUP          GPIOB
 #define KEYS_GPIO_PIN_PAGEUP          LL_GPIO_PIN_7  // PB.07
 #define KEYS_GPIO_REG_EXIT            GPIOB
-#define KEYS_GPIO_PIN_EXIT            LL_GPIO_PIN_5  // PB.05
+#define KEYS_GPIO_PIN_EXIT            LL_GPIO_PIN_9  // PB.09
 #define KEYS_GPIO_REG_ENTER           GPIOE
 #define KEYS_GPIO_PIN_ENTER           LL_GPIO_PIN_10 // PE.10
 #define KEYS_GPIO_REG_SYS             GPIOB
-#define KEYS_GPIO_PIN_SYS             LL_GPIO_PIN_4  // PB.04
+#define KEYS_GPIO_PIN_SYS             LL_GPIO_PIN_8  // PB.08
 #define KEYS_GPIO_REG_MDL             GPIOB
 #define KEYS_GPIO_PIN_MDL             LL_GPIO_PIN_6  // PB.06
 
@@ -111,13 +110,13 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define TRIMS_GPIO_REG_LHR            GPIOE
 #define TRIMS_GPIO_PIN_LHR            LL_GPIO_PIN_0  // PE.00
 #define TRIMS_GPIO_REG_LVD            GPIOA
-#define TRIMS_GPIO_PIN_LVD            LL_GPIO_PIN_15 // PA.15
+#define TRIMS_GPIO_PIN_LVD            LL_GPIO_PIN_4  // PA.04
 #define TRIMS_GPIO_REG_LVU            GPIOC
 #define TRIMS_GPIO_PIN_LVU            LL_GPIO_PIN_13 // PC.13
 #define TRIMS_GPIO_REG_RVD            GPIOE
 #define TRIMS_GPIO_PIN_RVD            LL_GPIO_PIN_12 // PE.12
 #define TRIMS_GPIO_REG_RHL            GPIOB
-#define TRIMS_GPIO_PIN_RHL            LL_GPIO_PIN_3  // PB.03
+#define TRIMS_GPIO_PIN_RHL            LL_GPIO_PIN_2  // PB.02
 #define TRIMS_GPIO_REG_RVU            GPIOD
 #define TRIMS_GPIO_PIN_RVU            LL_GPIO_PIN_11 // PD.11
 #define TRIMS_GPIO_REG_RHR            GPIOD
@@ -134,14 +133,14 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define SWITCHES_GPIO_PIN_C_L         LL_GPIO_PIN_8   // PD.08
 #define SWITCHES_GPIO_REG_C_H         GPIOD
 #define SWITCHES_GPIO_PIN_C_H         LL_GPIO_PIN_9   // PD.09
-#define SWITCHES_GPIO_REG_D_L         GPIOB
-#define SWITCHES_GPIO_PIN_D_L         LL_GPIO_PIN_15 // PB.15
+#define SWITCHES_GPIO_REG_D_L         GPIOA
+#define SWITCHES_GPIO_PIN_D_L         LL_GPIO_PIN_7 // PA.07
 #define SWITCHES_GPIO_REG_D_H         GPIOE
 #define SWITCHES_GPIO_PIN_D_H         LL_GPIO_PIN_14 // PE.14
 #define SWITCHES_GPIO_REG_E           GPIOD
 #define SWITCHES_GPIO_PIN_E           LL_GPIO_PIN_14  // PD.14
 #define SWITCHES_GPIO_REG_F           GPIOD
-#define SWITCHES_GPIO_PIN_F           LL_GPIO_PIN_13  // PD.13
+#define SWITCHES_GPIO_PIN_F           LL_GPIO_PIN_15  // PD.15
 #define SWITCHES_E_INVERTED
 #define SWITCHES_F_INVERTED
 
@@ -181,18 +180,20 @@ TIM17:	ROTARY_ENCODER_TIMER
 
 #define ADC_DIRECTION {-1,1,-1,1,  -1,-1, 1,-1}
 
-// Flysky Hall Stick (UART7 on PE7/PE8 - mutually exclusive with AUX_SERIAL)
+// Flysky Hall Stick (digital sticks) on UART4: TX=PA0, RX=PA1. These pins are
+// the legacy analog left-stick ADC inputs, now repurposed for the gimbal serial
+// link (see ADC note above - they are kept out of ADC_GPIOA_PINS).
 // RX uses GPDMA1 ch4 (a linear-only channel like intmodule's ch2). Channels 6/7
 // are the 2D-capable channels and the circular-RX linked-list node misbehaves
 // there, so RX DMA must stay on channels 0-5. TX is interrupt driven.
 #if defined(FLYSKY_GIMBAL)
-  #define FLYSKY_HALL_SERIAL_USART                 UART7
-  #define FLYSKY_HALL_SERIAL_TX_GPIO               GPIO_PIN(GPIOE, 8)
-  #define FLYSKY_HALL_SERIAL_RX_GPIO               GPIO_PIN(GPIOE, 7)
-  #define FLYSKY_HALL_SERIAL_USART_IRQn            UART7_IRQn
+  #define FLYSKY_HALL_SERIAL_USART                 UART4
+  #define FLYSKY_HALL_SERIAL_TX_GPIO               GPIO_PIN(GPIOA, 0)  // PA.00 UART4_TX
+  #define FLYSKY_HALL_SERIAL_RX_GPIO               GPIO_PIN(GPIOA, 1)  // PA.01 UART4_RX
+  #define FLYSKY_HALL_SERIAL_USART_IRQn            UART4_IRQn
   #define FLYSKY_HALL_SERIAL_DMA                   GPDMA1
   #define FLYSKY_HALL_DMA_Stream_RX                LL_DMA_CHANNEL_4
-  #define FLYSKY_HALL_DMA_Channel                  LL_GPDMA1_REQUEST_UART7_RX
+  #define FLYSKY_HALL_DMA_Channel                  LL_GPDMA1_REQUEST_UART4_RX
 #endif
 
 // PWR and LED driver
@@ -203,7 +204,7 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define GPIO_LED_GPIO_ON              gpio_set
 #define GPIO_LED_GPIO_OFF             gpio_clear
 #define LED_RED_GPIO                  GPIO_PIN(GPIOE, 6)
-#define LED_BLUE_GPIO                 GPIO_PIN(GPIOB, 13)
+#define LED_BLUE_GPIO                 GPIO_PIN(GPIOA, 5)
 #define LED_GREEN_GPIO                GPIO_PIN(GPIOB, 14)
 
 // LED Strip (TIM5_CH4 on PA3, driven by GPDMA2 ch3 on the timer UPDATE event)
@@ -290,34 +291,23 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define TRAINER_TIMER_IRQHandler      TIM3_IRQHandler
 #define TRAINER_TIMER_FREQ            (PERI1_FREQUENCY * TIMER_MULT_APB1)
 
-// Serial Port (UART7 on PE7/PE8 - mutually exclusive with Flysky Hall Stick)
-#if !defined(FLYSKY_GIMBAL)
-  #define HARDWARE_TRAINER_AUX_SERIAL
-  #define AUX_SERIAL_TX_GPIO               GPIO_PIN(GPIOE, 7)  // PE.07
-  #define AUX_SERIAL_RX_GPIO               GPIO_PIN(GPIOE, 8) // PE.08
-  #define AUX_SERIAL_USART                  UART7
-  #define AUX_SERIAL_USART_IRQn            UART7_IRQn
-  #define AUX_SERIAL_DMA_RX                 GPDMA1
-  #define AUX_SERIAL_DMA_RX_STREAM          LL_DMA_CHANNEL_4 // shared with FLYSKY_HALL (mutually exclusive); linear channel
-  #define AUX_SERIAL_DMA_RX_CHANNEL         LL_GPDMA1_REQUEST_UART7_RX
-#endif
 
-// Telemetry
-// half duplex telem
-#define TELEMETRY_TX_GPIO               GPIO_PIN(GPIOB, 9) // PB.09
+// half duplex telem on UART7 TX = PE8 (UART7 was previously the gimbal/aux
+// serial; the gimbal now lives on UART4, so UART7 is free for telemetry).
+#define TELEMETRY_TX_GPIO               GPIO_PIN(GPIOE, 8) // PE.08 UART7_TX
 #define TELEMETRY_RX_GPIO               GPIO_UNDEF
 
-#define TELEMETRY_USART                 UART4
+#define TELEMETRY_USART                 UART7
 #define TELEMETRY_DMA                   GPDMA1
 #define TELEMETRY_DMA_Stream_TX         LL_DMA_CHANNEL_3
-#define TELEMETRY_DMA_Channel_TX        LL_GPDMA1_REQUEST_UART4_TX
+#define TELEMETRY_DMA_Channel_TX        LL_GPDMA1_REQUEST_UART7_TX
 #define TELEMETRY_DMA_TX_IRQHandler     GPDMA1_Channel3_IRQHandler
 #define TELEMETRY_DMA_TX_Stream_IRQ     GPDMA1_Channel3_IRQn
-#define TELEMETRY_USART_IRQHandler      UART4_IRQHandler
-#define TELEMETRY_USART_IRQn            UART4_IRQn
-#define TELEMETRY_EXTI_PORT             LL_SYSCFG_EXTI_PORTB
-#define TELEMETRY_EXTI_SYS_LINE         LL_SYSCFG_EXTI_LINE9
-#define TELEMETRY_EXTI_LINE             LL_EXTI_LINE_9
+#define TELEMETRY_USART_IRQHandler      UART7_IRQHandler
+#define TELEMETRY_USART_IRQn            UART7_IRQn
+#define TELEMETRY_EXTI_PORT             LL_SYSCFG_EXTI_PORTE
+#define TELEMETRY_EXTI_SYS_LINE         LL_SYSCFG_EXTI_LINE8
+#define TELEMETRY_EXTI_LINE             LL_EXTI_LINE_8
 #define TELEMETRY_EXTI_TRIGGER          LL_EXTI_TRIGGER_RISING
 
 // Software IRQ (Prio 5 -> FreeRTOS compatible)
@@ -326,7 +316,7 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define EXTI4_IRQ_Priority 5
 
 // USB Charger
-#define USB_CHARGER_GPIO              GPIO_PIN(GPIOD, 7)
+// (not used)
 
 // Trainer / Trainee from the module bay
 //TODO
@@ -342,19 +332,19 @@ TIM17:	ROTARY_ENCODER_TIMER
 
 // LCD driver
 #define SSD1309_LCD
-#define LCD_MOSI_GPIO                 GPIO_PIN(GPIOA, 7) // PA.07
-#define LCD_CLK_GPIO                  GPIO_PIN(GPIOA, 5) // PA.05
+#define LCD_MOSI_GPIO                 GPIO_PIN(GPIOB, 15) // PB.15
+#define LCD_CLK_GPIO                  GPIO_PIN(GPIOB, 13) // PB.13
 #define LCD_A0_GPIO                   GPIO_PIN(GPIOA, 6) // PA.06
 #define LCD_NCS_GPIO                  GPIO_PIN(GPIOC, 5) // PC.05
-#define LCD_RST_GPIO                  GPIO_PIN(GPIOC, 4) // PC.04
+#define LCD_RST_GPIO                  GPIO_PIN(GPIOD, 7) // PD.07
 #define LCD_DMA                       DMA1
 #define LCD_DMA_Stream                DMA1_Stream7
 #define LCD_DMA_Stream_IRQn           DMA1_Stream7_IRQn
 #define LCD_DMA_Stream_IRQHandler     DMA1_Stream7_IRQHandler
 #define LCD_DMA_FLAGS                 (DMA_HIFCR_CTCIF7 | DMA_HIFCR_CHTIF7 | DMA_HIFCR_CTEIF7 | DMA_HIFCR_CDMEIF7 | DMA_HIFCR_CFEIF7)
 #define LCD_DMA_FLAG_INT              DMA_HIFCR_CTCIF7
-#define LCD_SPI                       SPI1
-#define LCD_GPIO_AF                   GPIO_AF8
+#define LCD_SPI                       SPI2
+#define LCD_GPIO_AF                   GPIO_AF5
 #define LCD_SPI_PRESCALER             SPI_CR1_BR_1
 #define OLED_SCREEN
 
@@ -375,19 +365,34 @@ TIM17:	ROTARY_ENCODER_TIMER
 #define SD_SDIO_TRANSFER_CLK_DIV SDMMC_NSPEED_CLK_DIV
 
 
-// Audio
-#define AUDIO_OUTPUT_GPIO               GPIO_PIN(GPIOA, 4)
-#define AUDIO_DMA                       GPDMA1
-#define AUDIO_DMA_Stream                LL_DMA_CHANNEL_5
-#define AUDIO_DMA_Stream_IRQn           GPDMA1_Channel5_IRQn
-#define AUDIO_DMA_Stream_IRQHandler     GPDMA1_Channel5_IRQHandler
-#define AUDIO_TIMER                     TIM6
-#define AUDIO_DMA_REQUEST               LL_GPDMA1_REQUEST_DAC1_CH1
-#define AUDIO_DAC                       DAC1
+// Audio - I2S1 (SPI1 in I2S mode) digital audio to a TAS2505 codec.
+// The codec is controlled over I2C4 (AUDIO_I2C). Volume/mute are handled by the
+// codec (SOFTWARE_VOLUME), so there is no DAC and no analog AUDIO_MUTE GPIO.
+#define AUDIO_SPI                       SPI1
+#define AUDIO_I2C                       I2C_Bus_1            // -> I2C4 (see I2C Bus)
+#define AUDIO_RESET_PIN                 GPIO_PIN(GPIOE, 15)  // PE.15 (was TRAINER_DETECT)
 
-#define AUDIO_MUTE_GPIO               GPIO_PIN(GPIOB, 2)
-#define AUDIO_MUTE_DELAY              500  // ms
-#define AUDIO_UNMUTE_DELAY            150  // ms
+// I2S1 pins (SPI1 alt-function I2S), all AF5
+#define AUDIO_I2S_MCK_GPIO              GPIO_PIN(GPIOC, 4)   // PC.04 I2S1_MCK
+#define AUDIO_I2S_WS_GPIO               GPIO_PIN(GPIOA, 15)  // PA.15 I2S1_WS
+#define AUDIO_I2S_CK_GPIO               GPIO_PIN(GPIOB, 3)   // PB.03 I2S1_CK
+#define AUDIO_I2S_SDO_GPIO              GPIO_PIN(GPIOB, 5)   // PB.05 I2S1_SDO -> codec DIN
+#define AUDIO_I2S_SDI_GPIO              GPIO_PIN(GPIOB, 4)   // PB.04 I2S1_SDI <- codec DOUT
+#define AUDIO_I2S_GPIO_AF               GPIO_AF5
+
+// I2S TX DMA: GPDMA1 ch5 (linear channel 0-5), SPI1_TX request
+#define I2S_DMA                         GPDMA1
+#define I2S_DMA_Stream                  LL_DMA_CHANNEL_5
+#define I2S_DMA_Stream_Request          LL_GPDMA1_REQUEST_SPI1_TX
+#define I2S_DMA_Stream_IRQn             GPDMA1_Channel5_IRQn
+#define I2S_DMA_Stream_IRQHandler       GPDMA1_Channel5_IRQHandler
+
+// I2C Bus 1 = I2C4 (TAS2505 audio codec control)
+#define I2C_B1                          I2C4
+#define I2C_B1_SDA_GPIO                 GPIO_PIN(GPIOD, 13) // PD.13 I2C4_SDA
+#define I2C_B1_SCL_GPIO                 GPIO_PIN(GPIOD, 12) // PD.12 I2C4_SCL
+#define I2C_B1_GPIO_AF                  LL_GPIO_AF_4
+#define I2C_B1_CLK_RATE                 400000
 
 // Haptic
 #define HAPTIC_PWM

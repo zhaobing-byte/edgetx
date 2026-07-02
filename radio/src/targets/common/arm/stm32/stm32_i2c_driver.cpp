@@ -393,6 +393,12 @@ static int i2c_init_clock_source(I2C_TypeDef* instance)
   }
 #endif
 
+#if !defined(LL_RCC_I2C123_CLKSOURCE) && defined(LL_RCC_I2C4_CLKSOURCE)
+  if (instance == I2C4) {
+    LL_RCC_SetClockSource(LL_RCC_I2C4_CLKSOURCE_PCLK3);
+  }
+#endif
+
   return 0;
 }
 
